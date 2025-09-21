@@ -102,8 +102,11 @@ export async function fetchRecentlyPlayedTracks(token: string) {
   }
   
   const json = await res.json();
-  let ids: string[] = json.items.map((item: any) => item.track.album.id); 
-  return ids; 
+  let albumNamesAndId = json.items.map((item: any) => ({
+    albumId: item.track.album.id,
+    albumName: item.track.album.name,
+  }));
+  return albumNamesAndId; 
 
   // return json.items.map((item: any) => ({
   //   song: item.track.name,
@@ -114,34 +117,35 @@ export async function fetchRecentlyPlayedTracks(token: string) {
   // }));
 }
 
+
+// This function looks at the top 50 most recent tracks you listened to and gets all the tracks in the album associated to that specific song. 
 export async function fetchAlbumTracks(token: string) {
-  let ids = await fetchRecentlyPlayedTracks(token); 
-  
-  const albumTracksPromises = ids.map(async (id) => {
-    const url = GET_ALBUM_TRACKS_ENDPOINT.replace('{id}', id);
+  let albumNamesAndId = await fetchRecentlyPlayedTracks(token);
+  const albumTracksPromises = albumNamesAndId.map(async ({ albumId, albumName }: { albumId: string, albumName: string}) => {
+    const url = GET_ALBUM_TRACKS_ENDPOINT.replace('{id}', albumId);
     
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
-    }); 
+  });
 
     if (!res.ok) {
-      console.error(`Failed to fetch tracks for album ${id}:`, res.status);
-      return { albumId: id, tracks: [], error: true }; 
+      console.error(`Failed to fetch tracks for album ${albumId}:`, res.status);
+      return { albumId, albumName, tracks: [], error: true }; 
     }
     
     const json = await res.json();
     
     return {
-      albumId: id, 
+      albumId, 
+      albumName,
       tracks: json.items.map((track: any) => ({
         song_name: track.name,
         artists: track.artists.map((artist: any) => artist.name).join(", "),
       })),
       error: false
     };
-
   });
   
-  return Promise.all(albumTracksPromises)
+  return Promise.all(albumTracksPromises);
 }
